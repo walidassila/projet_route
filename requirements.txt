@@ -17,4 +17,4 @@ tensorboard
 motmetrics
 filterpy
 h5py
-
+-e ByteTrack
