@@ -4,11 +4,11 @@ from video_utils import prepare_video
 from bounding_boxes import draw_boxes
 import ultralytics
 import os
-from labels_utils import remplace_name
+from labels_utils import remplace_name,replace_color
 
 
 
-def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None):
+def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,class_colors=None):
     if output_folder is None:
         output_folder=os.getcwd()
     
@@ -18,13 +18,14 @@ def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None):
         new_names=remplace_name(model,class_names=class_names)
     else:
         new_names=model.names
-        
+
+    class_colors=replace_color(model,class_colors=class_colors)   
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
         if not ret:
             break
         results=model.predict(frame,imgsz=640,conf=conf,verbose=False)[0]
-        draw_boxes(frame,results,class_names=new_names)
+        draw_boxes(frame,results,class_names=new_names,class_colors=class_colors)
         video_out.write(frame)
     
     cap.release()
