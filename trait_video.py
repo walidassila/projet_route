@@ -1,6 +1,6 @@
 import cv2
 from tqdm import tqdm
-from video_utils import open_video,prepare_video
+from video_utils import prepare_video
 from bounding_boxes import draw_boxes
 import ultralytics
 import os
