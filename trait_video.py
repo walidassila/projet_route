@@ -7,7 +7,10 @@ import os
 
 
 
-def trait_video(model,input_path,output_folder,conf=0.4,class_colors=None):
+def trait_video(model,input_path,output_folder=None,conf=0.4,class_colors=None):
+    if output_folder is None:
+        output_folder=os.getcwd()
+    
     cap,frame_count,video_out,output_path=prepare_video(input_path, output_folder, fourcc_code='mp4v')
     
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
