@@ -1,5 +1,4 @@
 import cv2
-from labels_utils import Labels
 
 def draw_boxes(frame, results, class_names=None,class_colors=None):
     for box in results.boxes:    
