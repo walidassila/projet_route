@@ -1,10 +1,12 @@
 import cv2
 from tqdm import tqdm
 from video_utils import prepare_video
-from bounding_boxes import draw_boxes
+from bounding_boxes import draw_boxes,draw_tracks
 import ultralytics
 import os
 from labels_utils import remplace_name,replace_color
+from tracker_utils import create_tracker
+from tracker_utils import yolo_to_bytetrack_detections
 
 def prepare_video_processing(model,input_path, output_folder=None, class_names=None, class_colors=None):
     """
@@ -34,13 +36,13 @@ def prepare_video_processing(model,input_path, output_folder=None, class_names=N
     return cap, frame_count, video_out, output_path, new_names, class_colors
 
 def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,class_colors=None):
-    cap, frame_count, video_out, output_path, new_names, class_colors=prepare_video_processing(model,input_path,output_folder=output_folder,class_names=class_names,class_colors=class_colors)
+    cap, frame_count, video_out, output_path, new_names, new_colors=prepare_video_processing(model,input_path,output_folder=output_folder,class_names=class_names,class_colors=class_colors)
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
         if not ret:
             break
         results=model.predict(frame,imgsz=640,conf=conf,verbose=False)[0]
-        draw_boxes(frame,results,class_names=new_names,class_colors=class_colors)
+        draw_boxes(frame,results,class_names=new_names,class_colors=new_colors)
         video_out.write(frame)
     
     cap.release()
@@ -49,12 +51,11 @@ def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,cl
 
 
 
-def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None,class_colors=None):
-    if output_folder is None:
-        output_folder=os.getcwd()
-    
-    cap,frame_count,video_out,output_path=prepare_video(input_path, output_folder, fourcc_code='mp4v')
-    tracker = create_tracker(track_thresh=conf)
+def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None,class_colors=None,tracker=None):
+    id_map = {}
+    counters = {}
+    cap, frame_count, video_out, output_path, new_names, new_colors=prepare_video_processing(model,input_path,output_folder=output_folder,class_names=class_names,class_colors=class_colors)
+    tracker = create_tracker(tracker=tracker)
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
         if not ret:
@@ -63,3 +64,8 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
         frame_shape = frame.shape[:2]
         detections = yolo_to_bytetrack_detections(results)
         online_targets = tracker.update(detections, frame_shape, frame_shape)
+        id_map, counters = draw_tracks(frame, online_targets, new_names, new_colors, id_map, counters)
+        video_out.write(frame)
+    
+    video_out.release()
+    cap.release()

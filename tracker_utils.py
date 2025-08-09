@@ -11,8 +11,10 @@ class TrackerArgs:
         self.min_box_area = min_box_area
         self.mot20 = mot20
 
-def create_tracker(**kwargs):
-    args = TrackerArgs(**kwargs)
+def create_tracker(tracker=None):
+    if tracker is None:
+            tracker = {}
+    args = TrackerArgs(**tracker)
     return BYTETracker(args)
 
 def yolo_to_bytetrack_detections(results):

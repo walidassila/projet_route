@@ -26,7 +26,7 @@ def remplace_name(model,class_names):
                 new_names[i] = class_names[full_name]
             else:
                   new_names[i]=full_name
-    return new_names
+    return new_names #new_names ex({0: "Personne", 1: "Voiture", 2: "dog"})
 def replace_color(model, class_colors=None):
     # Couleurs par défaut bien distinctes (20 couleurs)
     default_colors = [
@@ -76,5 +76,5 @@ def replace_color(model, class_colors=None):
         new_colors[i] = color
         used_colors.add(color)
 
-    return new_colors
+    return new_colors #new_colors ex({  0: (123, 45, 67), 1: (255, 0, 0), 2: (0, 255, 0))} 
    
