@@ -68,7 +68,7 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
         for track in online_targets:
             bbox = track.tlbr  # (x1, y1, x2, y2)
             track_id = track.track_id
-            class_id = track.class_id
+            class_id = int(track.class_id)
             class_name = class_names[class_id] if class_names is not None else str(class_id)
 
             x1, y1, x2, y2 = map(int, bbox)
