@@ -20,17 +20,12 @@ def create_tracker(tracker=None):
     return BYTETracker(args)
 #fichier tracker_utils.py
 def yolo_to_bytetrack_detections(results):
-    detections = []
-    for box in results.boxes:
-        x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-        score = float(box.conf[0])
-        cls = int(box.cls[0])
-        detections.append([x1, y1, x2, y2, score, cls])
-    
-    if detections:
-        # Retourne un tensor PyTorch (float32 par défaut)
-        return torch.tensor(detections, dtype=torch.float32)
-    else:
-        return torch.empty((0, 6), dtype=torch.float32)
+    if results.boxes is None or len(results.boxes) == 0:
+        return np.empty((0,5), dtype=np.float32)
 
+    boxes = results.boxes.xyxy.cpu().numpy()    # (N,4)
+    scores = results.boxes.conf.cpu().numpy()   # (N,)
+
+    output = np.hstack((boxes, scores.reshape(-1,1)))  # (N,5) : x1,y1,x2,y2,score
+    return output
     

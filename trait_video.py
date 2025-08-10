@@ -67,13 +67,17 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
         detections = yolo_to_bytetrack_detections(results)
         online_targets = tracker.update(detections, frame_shape, frame_shape)
         
-        for i, track in enumerate(online_targets):
-            if i < len(detections):
-                track.cls = int(detections[i, 5].item())  # detections est un tensor (x1,y1,x2,y2,score,cls)
-            else:
-                track.cls = -1  # ou None, si on a plus de tracks que détections
-        
-        id_map, counters = draw_tracks(frame, online_targets, new_names, new_colors, id_map, counters)
+        for track in online_targets:
+            track_id = track.track_id
+            bbox = track.tlbr  # bbox au format (top, left, bottom, right)
+            x1, y1, x2, y2 = map(int, bbox)
+
+            # Dessiner la bbox sur la frame
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            # Afficher l'ID au-dessus de la bbox
+            cv2.putText(frame, f'ID {track_id}', (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            
         video_out.write(frame)
     
     video_out.release()
