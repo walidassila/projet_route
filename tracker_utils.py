@@ -1,8 +1,9 @@
 # tracker_utils.py
 from yolox.tracker.byte_tracker import BYTETracker
 from yolox.tracker.byte_tracker import STrack
-import numpy as np
 import torch
+import numpy as np
+np.float = float
 
 class TrackerArgs:
     def __init__(self, track_thresh=0.4, track_buffer=30, match_thresh=0.8, min_box_area=10, mot20=False):
@@ -17,9 +18,7 @@ def create_tracker(tracker=None):
             tracker = {}
     args = TrackerArgs(**tracker)
     return BYTETracker(args)
-
-
-
+#fichier tracker_utils.py
 def yolo_to_bytetrack_detections(results):
     detections = []
     for box in results.boxes:
@@ -29,9 +28,9 @@ def yolo_to_bytetrack_detections(results):
         detections.append([x1, y1, x2, y2, score, cls])
     
     if detections:
-        return torch.tensor(detections)
+        # Retourne un tensor PyTorch (float32 par défaut)
+        return torch.tensor(detections, dtype=torch.float32)
     else:
-        return torch.empty((0, 6))
-
+        return torch.empty((0, 6), dtype=torch.float32)
 
     

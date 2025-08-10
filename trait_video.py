@@ -7,6 +7,8 @@ import os
 from labels_utils import remplace_name,replace_color
 from tracker_utils import create_tracker
 from tracker_utils import yolo_to_bytetrack_detections
+import numpy as np
+np.float = float
 
 def prepare_video_processing(model,input_path, output_folder=None, class_names=None, class_colors=None):
     """
@@ -50,7 +52,7 @@ def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,cl
     print("✅ Traitement terminé, vidéo sauvegardée dans :", output_path)
 
 
-
+#fichier trait_vedeo.py
 def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None,class_colors=None,tracker=None):
     id_map = {}
     counters = {}
@@ -64,6 +66,13 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
         frame_shape = frame.shape[:2]
         detections = yolo_to_bytetrack_detections(results)
         online_targets = tracker.update(detections, frame_shape, frame_shape)
+        
+        for i, track in enumerate(online_targets):
+            if i < len(detections):
+                track.cls = int(detections[i, 5].item())  # detections est un tensor (x1,y1,x2,y2,score,cls)
+            else:
+                track.cls = -1  # ou None, si on a plus de tracks que détections
+        
         id_map, counters = draw_tracks(frame, online_targets, new_names, new_colors, id_map, counters)
         video_out.write(frame)
     

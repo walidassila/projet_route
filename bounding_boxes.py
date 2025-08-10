@@ -1,4 +1,6 @@
 import cv2
+import numpy as np
+np.float = float
 
 def draw_boxes(frame, results, class_names=None,class_colors=None):
     for box in results.boxes:    
@@ -11,6 +13,7 @@ def draw_boxes(frame, results, class_names=None,class_colors=None):
         label = f'{class_names[cls_id]} {conf:.2f}'
         cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
+#fichier bouding_boxes.py
 def draw_tracks(frame, online_targets, new_names, new_colors, id_map, counters):
     # Récupérer la liste des IDs actifs (old_id, cls)
     active_ids = set((track.track_id, track.cls) for track in online_targets)

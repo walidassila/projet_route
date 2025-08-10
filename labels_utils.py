@@ -1,6 +1,7 @@
 import re
 import random
-
+import numpy as np
+np.float = float
 def generate_abbreviation(text, length=4):
     # Séparateurs possibles
     separators = re.compile(r'[ _\.\-]+')
