@@ -61,13 +61,9 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
             bbox = track.tlbr  # (x1, y1, x2, y2)
             track_id = track.track_id
             class_id = int(track.class_id)
-            class_name = new_names.get(class_id, 'Unknown')
-            
-
-
+            class_name = new_names.get(class_id, 'Unknown')   
+            color = new_colors.get(class_id, (0, 255, 0))  # Vert, ou tu peux utiliser new_colors[class_id] si tu veux des couleurs différentes
             x1, y1, x2, y2 = map(int, bbox)
-            color = (0, 255, 0)  # Vert, ou tu peux utiliser new_colors[class_id] si tu veux des couleurs différentes
-
             # Dessiner rectangle
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
