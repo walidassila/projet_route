@@ -61,9 +61,6 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
             bbox = track.tlbr  # (x1, y1, x2, y2)
             track_id = track.track_id
             class_id = int(track.class_id)
-            print(f'class_id={class_id}, type={type(class_id)}')
-            print('keys in new_names:', list(new_names.keys()))
-            print('Trying to access:', class_id)
             class_name = new_names.get(class_id, 'Unknown')
             
 
