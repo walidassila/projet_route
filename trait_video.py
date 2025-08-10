@@ -54,8 +54,6 @@ def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,cl
 
 #fichier trait_vedeo.py
 def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None,class_colors=None,tracker=None):
-    id_map = {}
-    counters = {}
     cap, frame_count, video_out, output_path, new_names, new_colors=prepare_video_processing(model,input_path,output_folder=output_folder,class_names=class_names,class_colors=class_colors)
     tracker = create_tracker(tracker=tracker)
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
@@ -68,15 +66,21 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
         online_targets = tracker.update(detections, frame_shape, frame_shape)
         
         for track in online_targets:
+            bbox = track.tlbr  # (x1, y1, x2, y2)
             track_id = track.track_id
-            bbox = track.tlbr  # bbox au format (top, left, bottom, right)
-            x1, y1, x2, y2 = map(int, bbox)
+            class_id = track.class_id
+            class_name = class_names[class_id] if class_names is not None else str(class_id)
 
-            # Dessiner la bbox sur la frame
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            # Afficher l'ID au-dessus de la bbox
-            cv2.putText(frame, f'ID {track_id}', (x1, y1 - 10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            x1, y1, x2, y2 = map(int, bbox)
+            color = (0, 255, 0)  # Vert, ou tu peux utiliser new_colors[class_id] si tu veux des couleurs différentes
+
+            # Dessiner rectangle
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+
+            # Écrire l'ID et le nom de classe au-dessus de la bbox
+            cv2.putText(frame, f'ID {track_id} {class_name}', (x1, y1 - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
             
         video_out.write(frame)
     

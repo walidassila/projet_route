@@ -12,13 +12,14 @@ from .basetrack import BaseTrack, TrackState
 
 class STrack(BaseTrack):
     shared_kalman = KalmanFilter()
-    def __init__(self, tlwh, score):
+    def __init__(self, tlwh, score,class_id=None):
 
         # wait activate
         self._tlwh = np.asarray(tlwh, dtype=np.float)
         self.kalman_filter = None
         self.mean, self.covariance = None, None
         self.is_activated = False
+        self.class_id = int(class_id) if class_id is not None else None
 
         self.score = score
         self.tracklet_len = 0
@@ -64,6 +65,8 @@ class STrack(BaseTrack):
         self.state = TrackState.Tracked
         self.is_activated = True
         self.frame_id = frame_id
+        ##added
+        self.class_id = new_track.class_id
         if new_id:
             self.track_id = self.next_id()
         self.score = new_track.score
@@ -78,6 +81,8 @@ class STrack(BaseTrack):
         """
         self.frame_id = frame_id
         self.tracklet_len += 1
+        ##added
+        self.class_id = new_track.class_id
 
         new_tlwh = new_track.tlwh
         self.mean, self.covariance = self.kalman_filter.update(
@@ -163,13 +168,26 @@ class BYTETracker(object):
         lost_stracks = []
         removed_stracks = []
 
-        if output_results.shape[1] == 5:
+        if output_results.shape[1] >= 6:  # x1, y1, x2, y2, score, class_id
+            scores = output_results[:, 4]
+            class_ids = output_results[:, 5]
+            bboxes = output_results[:, :4]
+        elif output_results.shape[1] == 5:
             scores = output_results[:, 4]
             bboxes = output_results[:, :4]
+            class_ids = np.zeros(len(scores))  # si pas fourni
         else:
             output_results = output_results.cpu().numpy()
             scores = output_results[:, 4] * output_results[:, 5]
             bboxes = output_results[:, :4]  # x1y1x2y2
+            class_ids = np.zeros(len(scores))
+        #if output_results.shape[1] == 5:
+          #  scores = output_results[:, 4]
+         #   bboxes = output_results[:, :4]
+        #else:
+           # output_results = output_results.cpu().numpy()
+           # scores = output_results[:, 4] * output_results[:, 5]
+          #bboxes = output_results[:, :4]  # x1y1x2y2
         img_h, img_w = img_info[0], img_info[1]
         scale = min(img_size[0] / float(img_h), img_size[1] / float(img_w))
         bboxes /= scale
@@ -183,11 +201,15 @@ class BYTETracker(object):
         dets = bboxes[remain_inds]
         scores_keep = scores[remain_inds]
         scores_second = scores[inds_second]
-
+        ##WALID ADDED
+        classes_keep = class_ids[remain_inds]
+        classes_second = class_ids[inds_second]
         if len(dets) > 0:
             '''Detections'''
-            detections = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
-                          (tlbr, s) in zip(dets, scores_keep)]
+            detections = [STrack(STrack.tlbr_to_tlwh(tlbr), s, class_id=c) 
+              for (tlbr, s, c) in zip(dets, scores_keep, classes_keep)]
+            #detections = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
+             #             (tlbr, s) in zip(dets, scores_keep)]
         else:
             detections = []
 
@@ -223,8 +245,11 @@ class BYTETracker(object):
         # association the untrack to the low score detections
         if len(dets_second) > 0:
             '''Detections'''
-            detections_second = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
-                          (tlbr, s) in zip(dets_second, scores_second)]
+            detections_second = [STrack(STrack.tlbr_to_tlwh(tlbr), s, class_id=c) 
+                     for (tlbr, s, c) in zip(dets_second, scores_second, classes_second)]
+
+            ##detections_second = [STrack(STrack.tlbr_to_tlwh(tlbr), s) for
+                          ##(tlbr, s) in zip(dets_second, scores_second)]
         else:
             detections_second = []
         r_tracked_stracks = [strack_pool[i] for i in u_track if strack_pool[i].state == TrackState.Tracked]
@@ -287,6 +312,12 @@ class BYTETracker(object):
         output_stracks = [track for track in self.tracked_stracks if track.is_activated]
 
         return output_stracks
+
+
+
+
+
+
 
 
 def joint_stracks(tlista, tlistb):

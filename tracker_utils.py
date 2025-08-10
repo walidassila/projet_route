@@ -21,11 +21,14 @@ def create_tracker(tracker=None):
 #fichier tracker_utils.py
 def yolo_to_bytetrack_detections(results):
     if results.boxes is None or len(results.boxes) == 0:
-        return np.empty((0,5), dtype=np.float32)
+        return np.empty((0,6), dtype=np.float32)  # si tu veux aussi class_id (mettre 0)
 
-    boxes = results.boxes.xyxy.cpu().numpy()    # (N,4)
-    scores = results.boxes.conf.cpu().numpy()   # (N,)
+    boxes = results.boxes.xyxy.cpu().numpy()   # (N,4)
+    scores = results.boxes.conf.cpu().numpy()  # (N,)
+    classes = results.boxes.cls.cpu().numpy()  # (N,)
 
-    output = np.hstack((boxes, scores.reshape(-1,1)))  # (N,5) : x1,y1,x2,y2,score
-    return output
+    # Concaténer x1,y1,x2,y2,score,class_id
+    output = np.hstack((boxes, scores.reshape(-1,1), classes.reshape(-1,1)))
+    return output.astype(np.float32)
+
     
