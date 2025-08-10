@@ -20,7 +20,7 @@ def generate_abbreviation(text, length=4):
         if i < len(seps):
             result += seps[i]
     return result
-def remplace_name(model,class_names):
+def replace_name(model,class_names):
     new_names={}
     for i, full_name in model.names.items():
             if full_name in class_names:

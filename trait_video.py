@@ -4,7 +4,7 @@ from video_utils import prepare_video
 from bounding_boxes import draw_boxes,draw_tracks
 import ultralytics
 import os
-from labels_utils import remplace_name,replace_color
+from labels_utils import replace_name,replace_color
 from tracker_utils import create_tracker
 from tracker_utils import yolo_to_bytetrack_detections
 import numpy as np
@@ -28,7 +28,7 @@ def prepare_video_processing(model,input_path, output_folder=None, class_names=N
     
     # Gère les noms des classes
     if class_names:
-        new_names = remplace_name(model, class_names=class_names)
+        new_names = replace_name(model, class_names=class_names)
     else:
         new_names = model.names
     
@@ -69,7 +69,7 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
             bbox = track.tlbr  # (x1, y1, x2, y2)
             track_id = track.track_id
             class_id = int(track.class_id)
-            class_name = class_names[class_id] if class_names is not None else str(class_id)
+            class_name = new_names[class_id] if (new_names is not None and class_id in new_names) else str(class_id)
 
             x1, y1, x2, y2 = map(int, bbox)
             color = (0, 255, 0)  # Vert, ou tu peux utiliser new_colors[class_id] si tu veux des couleurs différentes
