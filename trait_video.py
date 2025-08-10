@@ -7,6 +7,7 @@ import os
 from labels_utils import replace_name,replace_color
 from tracker_utils import create_tracker
 from tracker_utils import yolo_to_bytetrack_detections
+from id_local_manager import IDLocalManager
 import numpy as np
 np.float = float
 
@@ -48,6 +49,7 @@ def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,cl
 def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None,class_colors=None,tracker=None):
     cap, frame_count, video_out, output_path, new_names, new_colors=prepare_video_processing(model,input_path,output_folder=output_folder,class_names=class_names,class_colors=class_colors)
     tracker = create_tracker(tracker=tracker)
+    id_manager = IDLocalManager()
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
         if not ret:
@@ -56,11 +58,19 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
         frame_shape = frame.shape[:2]
         detections = yolo_to_bytetrack_detections(results)
         online_targets = tracker.update(detections, frame_shape, frame_shape)
+
+        current_global_ids = set()
         
         for track in online_targets:
             bbox = track.tlbr  # (x1, y1, x2, y2)
             track_id = track.track_id
             class_id = int(track.class_id)
+            current_global_ids.add((track_id, class_id))
+
+            local_id = id_manager.get_local_id(track_id, class_id)
+            if local_id is None:
+                local_id = id_manager.add(track_id, class_id)
+
             class_name = new_names.get(class_id, 'Unknown')   
             color = new_colors.get(class_id, (0, 255, 0))  # Vert, ou tu peux utiliser new_colors[class_id] si tu veux des couleurs différentes
             x1, y1, x2, y2 = map(int, bbox)
@@ -68,10 +78,15 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
 
             # Écrire l'ID et le nom de classe au-dessus de la bbox
-            cv2.putText(frame, f'ID {track_id} {class_name}', (x1, y1 - 10),
+            cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-            
+
+
+        all_active = {(t[0], t[1]) for cls in id_manager.active_ids.values() for t in cls}
+        to_remove = all_active - current_global_ids
+        for (removed_id, removed_class) in to_remove:
+            id_manager.remove(removed_id, removed_class)    
         video_out.write(frame)
     
     video_out.release()
