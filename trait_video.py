@@ -11,15 +11,7 @@ import numpy as np
 np.float = float
 
 def prepare_video_processing(model,input_path, output_folder=None, class_names=None, class_colors=None):
-    """
-    Prépare les objets nécessaires pour traiter une vidéo :
-    - crée output_folder s'il n'existe pas,
-    - prépare la vidéo (capture, frame count, writer, output path),
-    - remplace les noms des classes si class_names fourni,
-    - remplace ou initialise les couleurs des classes.
 
-    Retourne : cap, frame_count, video_out, output_path, new_names, class_colors
-    """
     if output_folder is None:
         output_folder = os.getcwd()
     
@@ -69,7 +61,11 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
             bbox = track.tlbr  # (x1, y1, x2, y2)
             track_id = track.track_id
             class_id = int(track.class_id)
+            print(f'class_id={class_id}, type={type(class_id)}')
+            print('keys in new_names:', list(new_names.keys()))
+            print('Trying to access:', class_id)
             class_name = new_names.get(class_id, 'Unknown')
+            
 
 
             x1, y1, x2, y2 = map(int, bbox)
