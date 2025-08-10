@@ -69,7 +69,8 @@ def trait_tracking(model,input_path,output_folder=None,conf=0.4,class_names=None
             bbox = track.tlbr  # (x1, y1, x2, y2)
             track_id = track.track_id
             class_id = int(track.class_id)
-            class_name = new_names[class_id] if (new_names is not None and class_id in new_names) else str(class_id)
+            class_name = new_names.get(class_id, 'Unknown')
+
 
             x1, y1, x2, y2 = map(int, bbox)
             color = (0, 255, 0)  # Vert, ou tu peux utiliser new_colors[class_id] si tu veux des couleurs différentes
