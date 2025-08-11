@@ -1,57 +1,67 @@
 class IDLocalManager:
     def __init__(self):
-        # Stocke tous les triplets actifs sous forme:
-        # { id_class: [ (id_track_global, id_local), ... ] }
-        self.active_ids = {}
+        # Map : clé=(id_global, id_class) -> (id_local, marqueur)
+        self.active_map = {}
+        # Map : clé=id_class -> {id_global: id_local}
+        self.class_map = {}
+        # Compteur max par classe
+        self.class_counter = {}
 
-    def add(self, id_track_global, id_class):
-        """Ajoute un nouveau triplet, crée id_local incrémenté par classe"""
-        if id_class not in self.active_ids:
-            self.active_ids[id_class] = []
+    def update_removed(self, removed_stracks):
+        """
+        Met à jour les IDs actifs en fonction de removed_stracks :
+        - Si l'objet est le seul de sa classe -> marquer pour suppression future
+        - Sinon -> supprimer immédiatement
+        """
+        removed_ids = {(t.track_id, int(t.class_id)) for t in removed_stracks}
 
-        # Trouver le max id_local existant pour cette classe
-        if self.active_ids[id_class]:
-            max_local = max(t[1] for t in self.active_ids[id_class])
-        else:
-            max_local = 0
+        for (id_global, id_class) in list(self.active_map.keys()):
+            if (id_global, id_class) in removed_ids:
+                same_class = self.class_map.get(id_class, {})
+                if len(same_class) == 1:
+                    # Marquer comme à supprimer
+                    id_local, _ = self.active_map[(id_global, id_class)]
+                    self.active_map[(id_global, id_class)] = (id_local, True)
+                else:
+                    # Suppression immédiate
+                    self._remove(id_global, id_class)
 
-        new_local = max_local + 1
-        self.active_ids[id_class].append((id_track_global, new_local))
+    def get_or_add(self, id_global, id_class):
+        """
+        Retourne l'id_local pour un id_global donné, sinon l'ajoute.
+        - Si un objet marqué à supprimer existe pour cette classe :
+          -> incrémente id_local et supprime l'ancien marqué
+        - Sinon, incrémente le compteur de cette classe
+        """
+        # Déjà présent → retour direct
+        if (id_global, id_class) in self.active_map:
+            return self.active_map[(id_global, id_class)][0]
+
+        # Chercher si un objet marqué existe
+        for (g_id, c_id), (id_local, marqueur) in list(self.active_map.items()):
+            if c_id == id_class and marqueur is True:
+                new_local = id_local + 1
+                self._remove(g_id, c_id)
+                self._add(id_global, id_class, new_local)
+                return new_local
+
+        # Nouveau complètement → incrémentation
+        new_local = self.class_counter.get(id_class, 0) + 1
+        self._add(id_global, id_class, new_local)
         return new_local
 
-    def remove(self, id_track_global, id_class):
-        """Supprime un triplet selon la règle donnée"""
-        if id_class not in self.active_ids:
-            return  # Rien à faire
+    def _add(self, id_global, id_class, id_local):
+        """Ajoute un ID actif"""
+        self.active_map[(id_global, id_class)] = (id_local, False)
+        if id_class not in self.class_map:
+            self.class_map[id_class] = {}
+        self.class_map[id_class][id_global] = id_local
+        self.class_counter[id_class] = max(self.class_counter.get(id_class, 0), id_local)
 
-        # Trouver le triplet à supprimer
-        triplets = self.active_ids[id_class]
-        triplet_to_remove = None
-        for t in triplets:
-            if t[0] == id_track_global:
-                triplet_to_remove = t
-                break
-        if triplet_to_remove is None:
-            return  # Pas trouvé
-
-        # Vérifier si c'est le dernier id_local (max)
-        max_local = max(t[1] for t in triplets)
-        if triplet_to_remove[1] == max_local:
-            # Ne pas supprimer pour bloquer le compteur local
-            # Tu peux ajouter une gestion spéciale ici si besoin
-            print(f"Blocage suppression dernier id_local {max_local} pour classe {id_class}")
-            return
-        else:
-            # Supprimer normalement
-            triplets.remove(triplet_to_remove)
-            if len(triplets) == 0:
-                del self.active_ids[id_class]
-
-    def get_local_id(self, id_track_global, id_class):
-        """Retourne le id_local correspondant, ou None si pas trouvé"""
-        if id_class not in self.active_ids:
-            return None
-        for t in self.active_ids[id_class]:
-            if t[0] == id_track_global:
-                return t[1]
-        return None
+    def _remove(self, id_global, id_class):
+        """Supprime un ID actif"""
+        self.active_map.pop((id_global, id_class), None)
+        if id_class in self.class_map:
+            self.class_map[id_class].pop(id_global, None)
+            if not self.class_map[id_class]:
+                del self.class_map[id_class]

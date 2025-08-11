@@ -55,7 +55,7 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     )
 
     tracker = create_tracker(tracker=tracker)
-    id_manager = IDLocalManager()
+    id_manager = IDLocalManager()  # nouvelle version optimisée
 
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
@@ -68,19 +68,16 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
         detections = yolo_to_bytetrack_detections(results)
         online_targets = tracker.update(detections, frame_shape, frame_shape)
 
-        current_global_ids = set()
+        # 🔹 Nettoyage / mise à jour des IDs supprimés
+        id_manager.update_removed(tracker.removed_stracks)
 
         for track in online_targets:
             bbox = track.tlbr
             track_id = track.track_id
             class_id = int(track.class_id)
 
-            current_global_ids.add((track_id, class_id))
-
-            local_id = id_manager.get_local_id(track_id, class_id)
-            if local_id is None:
-                local_id = id_manager.add(track_id, class_id)
-                print(f"[ADD] Nouvelle entrée : global_id={track_id}, classe={class_id}, local_id={local_id}")
+            # 🔹 Obtenir ou créer un ID local
+            local_id = id_manager.get_or_add(track_id, class_id)
 
             class_name = new_names.get(class_id, 'Unknown')
             color = new_colors.get(class_id, (0, 255, 0))
@@ -89,17 +86,6 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-
-        # === Suppression uniquement pour les tracks définitivement supprimés par ByteTrack ===
-        removed_global_ids = set((t.track_id, int(t.class_id)) for t in tracker.removed_stracks)
-
-        for (removed_id, removed_class) in removed_global_ids:
-            before_count = len(id_manager.active_ids.get(removed_class, []))
-            id_manager.remove(removed_id, removed_class)
-            after_count = len(id_manager.active_ids.get(removed_class, []))
-
-            if before_count != after_count:
-                    print(f"[REMOVE] Suppression : global_id={removed_id}, classe={removed_class}")
 
         video_out.write(frame)
 
