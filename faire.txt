@@ -1,5 +1,39 @@
-Garder en mémoire tous les triplets (id_track_global, id_class, id_local) actifs.
-Lorsqu’un id_track_global est définitivement supprimé par ByteTrack, tu supprimes aussi son triplet si id_local associe á class_id  n'est pas le dernier .
-Si c’est le dernier id_local pour la classe, tu ne le supprimes pas pour ne pas perdre la capacité d’incrémenter le compteur local proprement.
-Ainsi, tu évites de "sauter" des ID locaux dans la séquence, en n’augmentant le compteur local que lorsqu’un nouveau track arrive et que tu as le dernier id_local enregistré.
+Règles de nettoyage
+On a une liste :
 
+ini
+Copier
+Modifier
+active_ids = [
+    (id_local, id_global, id_class, marqueur)
+]
+où marqueur = False par défaut.
+
+À chaque frame :
+
+On compare chaque id_active avec removed_stracks.
+
+Si id_global n’est pas dans removed_stracks → on ne touche pas.
+
+Si id_global est dans removed_stracks :
+
+On regarde si c’est le seul objet de cette classe dans la liste :
+
+Oui → on met marqueur = True (il sera supprimé plus tard).
+
+Non → on le supprime immédiatement.
+
+Règles d’ajout
+Quand un nouvel objet apparaît :
+
+On vérifie si dans active_ids il y a un élément de la même classe avec marqueur=True.
+
+Oui →
+
+Son id_local = ancien_id_local + 1
+
+On supprime l’ancien marqué de la liste.
+
+Non →
+
+On prend max(id_local) de cette classe (ou 0 si pas d’historique), puis +1.

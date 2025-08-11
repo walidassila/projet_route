@@ -8,23 +8,21 @@ class IDLocalManager:
         self.class_counter = {}
 
     def update_removed(self, removed_stracks):
-        """
-        Met à jour les IDs actifs en fonction de removed_stracks :
-        - Si l'objet est le seul de sa classe -> marquer pour suppression future
-        - Sinon -> supprimer immédiatement
-        """
         removed_ids = {(t.track_id, int(t.class_id)) for t in removed_stracks}
+        removed_now = []
 
         for (id_global, id_class) in list(self.active_map.keys()):
             if (id_global, id_class) in removed_ids:
                 same_class = self.class_map.get(id_class, {})
                 if len(same_class) == 1:
-                    # Marquer comme à supprimer
                     id_local, _ = self.active_map[(id_global, id_class)]
                     self.active_map[(id_global, id_class)] = (id_local, True)
                 else:
-                    # Suppression immédiate
+                    id_local, _ = self.active_map[(id_global, id_class)]
+                    removed_now.append((id_local, id_global, id_class))
                     self._remove(id_global, id_class)
+
+        return removed_now
 
     def get_or_add(self, id_global, id_class):
         """

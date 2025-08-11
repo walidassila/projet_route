@@ -68,8 +68,11 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
         detections = yolo_to_bytetrack_detections(results)
         online_targets = tracker.update(detections, frame_shape, frame_shape)
 
-        # 🔹 Nettoyage / mise à jour des IDs supprimés
-        id_manager.update_removed(tracker.removed_stracks)
+        removed_this_frame = id_manager.update_removed(tracker.removed_stracks)
+
+        for id_local, id_global, id_class in removed_this_frame:
+            print(f"[REMOVE] ID supprimé local={id_local}, global={id_global}, classe={id_class}")
+        total_removed += len(removed_this_frame)
 
         for track in online_targets:
             bbox = track.tlbr
