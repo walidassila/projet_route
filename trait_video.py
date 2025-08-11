@@ -7,7 +7,7 @@ import os
 from labels_utils import replace_name,replace_color
 from tracker_utils import create_tracker
 from tracker_utils import yolo_to_bytetrack_detections
-from id_local_manager import IDLocalManager
+from id_local_manager import IDLocalManagerFast
 import numpy as np
 np.float = float
 
@@ -55,9 +55,8 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     )
 
     tracker = create_tracker(tracker=tracker)
-    id_manager = IDLocalManager()  # nouvelle version optimisée
+    id_manager = IDLocalManagerFast()  # nouvelle version optimisée
 
-    total_removed = 0  # initialisation compteur
 
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
@@ -70,11 +69,8 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
         detections = yolo_to_bytetrack_detections(results)
         online_targets = tracker.update(detections, frame_shape, frame_shape)
 
-        removed_this_frame = id_manager.update_removed(tracker.removed_stracks)
-
-        for id_local, id_global, id_class in removed_this_frame:
-            print(f"[REMOVE] ID supprimé local={id_local}, global={id_global}, classe={id_class}")
-        total_removed += len(removed_this_frame)
+        # 🔹 Nettoyage / mise à jour des IDs supprimés
+        id_manager.update_removed(tracker.removed_stracks)
 
         for track in online_targets:
             bbox = track.tlbr
@@ -97,4 +93,4 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     video_out.release()
     cap.release()
 
-    print(f"=== FIN TRAITEMENT ===\nTotal des ID actifs supprimés : {total_removed}")
+    
