@@ -52,7 +52,7 @@ def open_csv_for_detections(output_folder=None, filename="detections.csv"):
     path = (output_folder or '.') + "/" + filename
     csvfile = open(path, mode='w', newline='')
     writer = csv.writer(csvfile)
-    writer.writerow(['id_class', 'nom_class', 'temps_sec', 'id_local', 'confiance'])
+    writer.writerow(['id_class', 'nom_class', 'frame_idx', 'id_local', 'confiance'])
     return csvfile, writer, path
 
 
