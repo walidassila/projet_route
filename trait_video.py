@@ -9,6 +9,7 @@ from tracker_utils import create_tracker
 from tracker_utils import yolo_to_bytetrack_detections
 from id_local_manager import IDLocalManagerFast
 import numpy as np
+import csv
 np.float = float
 
 def prepare_video_processing(model,input_path, output_folder=None, class_names=None, class_colors=None):
@@ -46,6 +47,20 @@ def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,cl
 
 
 #fichier trait_vedeo.py
+def open_csv_for_detections(output_folder=None, filename="detections.csv"):
+    path = (output_folder or '.') + "/" + filename
+    csvfile = open(path, mode='w', newline='')
+    writer = csv.writer(csvfile)
+    writer.writerow(['id_class', 'nom_class', 'temps_sec', 'id_local', 'confiance'])
+    return csvfile, writer, path
+
+
+def write_detection(writer, id_class, nom_class, temps_sec, id_local, confiance):
+    """
+    Écrit une ligne dans le fichier CSV via le writer.
+    """
+    writer.writerow([id_class, nom_class, temps_sec, id_local, confiance])
+
 def trait_tracking(model, input_path, output_folder=None, conf=0.4,
                    class_names=None, class_colors=None, tracker=None):
 
@@ -55,10 +70,14 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     )
 
     tracker = create_tracker(tracker=tracker)
-    id_manager = IDLocalManagerFast()  # nouvelle version optimisée
+    id_manager = IDLocalManagerFast()
 
+    # Ouvrir CSV
+    csvfile, writer, csv_path = open_csv_for_detections(output_folder)
 
-    for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30  # Fallback à 30 si non dispo
+
+    for frame_idx in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
         if not ret:
             break
@@ -69,27 +88,36 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
         detections = yolo_to_bytetrack_detections(results)
         online_targets = tracker.update(detections, frame_shape, frame_shape)
 
-        # 🔹 Nettoyage / mise à jour des IDs supprimés
         id_manager.update_removed(tracker.removed_stracks)
 
         for track in online_targets:
             bbox = track.tlbr
             track_id = track.track_id
             class_id = int(track.class_id)
+            conf_score = track.score if hasattr(track, 'score') else 0.0
 
-            # 🔹 Obtenir ou créer un ID local
             local_id = id_manager.get_or_add(track_id, class_id)
-
             class_name = new_names.get(class_id, 'Unknown')
             color = new_colors.get(class_id, (0, 255, 0))
             x1, y1, x2, y2 = map(int, bbox)
 
+            # Calcul temps en secondes
+            temps_sec = frame_idx / fps
+
+            # Écriture dans CSV
+            write_detection(writer, class_id, class_name, temps_sec, local_id, conf_score)
+
+            # Dessiner la bbox et texte
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
         video_out.write(frame)
 
+    # Fermer les fichiers/ressources
+    csvfile.close()
     video_out.release()
     cap.release()
+        print(f"Vidéo sortie enregistrée ici : {output_path}")
+        print(f"Fichier CSV enregistré ici : {csv_path}")
     
