@@ -12,7 +12,7 @@ def open_csv_for_detections(output_folder=None, filename="detections_raw.csv"):
 def write_detection(writer, id_local, nom_class, confiance, frame_idx, path_image=""):
     writer.writerow([id_local, nom_class, confiance, frame_idx, path_image])
 
-def filter_max_conf_per_idlocal_class_name(input_csv_path, output_csv_path):
+def filter(input_csv_path, output_csv_path):
     best_detections = {}
 
     with open(input_csv_path, mode='r', newline='') as infile:

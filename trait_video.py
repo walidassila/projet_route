@@ -1,6 +1,6 @@
 import cv2
 from tqdm import tqdm
-from csv_storage import filter_max_conf_per_idlocal_class_name,open_csv_for_detections,write_detection
+from csv_storage import filter,open_csv_for_detections,write_detection
 from video_utils import prepare_video
 from bounding_boxes import draw_boxes,draw_tracks
 import ultralytics
@@ -104,7 +104,7 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     cap.release()
 
     filtered_csv_path = (output_folder or os.getcwd()) + "/detections_filtered.csv"
-    filter_max_conf_per_idlocal_class_name(csv_raw_path, filtered_csv_path)
+    filter(csv_raw_path, filtered_csv_path)
 
     if os.path.exists(csv_raw_path):
         os.remove(csv_raw_path)
