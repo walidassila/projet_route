@@ -118,6 +118,6 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     csvfile.close()
     video_out.release()
     cap.release()
-        print(f"Vidéo sortie enregistrée ici : {output_path}")
-        print(f"Fichier CSV enregistré ici : {csv_path}")
+    print(f"Vidéo sortie enregistrée ici : {output_path}")
+    print(f"Fichier CSV enregistré ici : {csv_path}")
     
