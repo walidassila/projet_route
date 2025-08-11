@@ -12,19 +12,23 @@ def open_csv_for_detections(output_folder=None, filename="detections_raw.csv"):
 def write_detection(writer, id_local, nom_class, confiance, frame_idx, path_image=""):
     writer.writerow([id_local, nom_class, confiance, frame_idx, path_image])
 
-def filter_max_conf_per_idlocal(input_csv_path, output_csv_path):
+def filter_max_conf_per_idlocal_class_name(input_csv_path, output_csv_path):
     best_detections = {}
 
     with open(input_csv_path, mode='r', newline='') as infile:
         reader = csv.DictReader(infile)
         for row in reader:
             id_local = int(row['id'])
+            nom_class = row['Anomalie']
             confiance = float(row['confiance'])
-            # Garde la détection max confiance par id_local
-            if id_local not in best_detections or confiance > best_detections[id_local]['confiance']:
-                best_detections[id_local] = {
+
+            # Clé = (id_local, nom_class) pour filtrer par couple
+            key = (id_local, nom_class)
+
+            if key not in best_detections or confiance > best_detections[key]['confiance']:
+                best_detections[key] = {
                     'id': id_local,
-                    'Anomalie': row['Anomalie'],
+                    'Anomalie': nom_class,
                     'confiance': confiance,
                     'frame': row['frame'],
                     'path_image': row.get('path_image', "")
