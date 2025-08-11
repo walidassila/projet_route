@@ -1,6 +1,6 @@
 import cv2
 from tqdm import tqdm
-from csv_storage import filter_max_conf_per_idlocal
+from csv_storage import filter_max_conf_per_idlocal,open_csv_for_detections,write_detection
 from video_utils import prepare_video
 from bounding_boxes import draw_boxes,draw_tracks
 import ultralytics
@@ -10,6 +10,7 @@ from tracker_utils import create_tracker
 from tracker_utils import yolo_to_bytetrack_detections
 from id_local_manager import IDLocalManagerFast
 import numpy as np
+import math
 import csv
 np.float = float
 
@@ -48,21 +49,6 @@ def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,cl
 
 
 #fichier trait_vedeo.py
-def open_csv_for_detections(output_folder=None, filename="detections.csv"):
-    path = (output_folder or '.') + "/" + filename
-    csvfile = open(path, mode='w', newline='')
-    writer = csv.writer(csvfile)
-    writer.writerow(['id_class', 'nom_class', 'frame_idx', 'id_local', 'confiance'])
-    return csvfile, writer, path
-
-
-def write_detection(writer, id_class, nom_class, temps_sec, id_local, confiance):
-    """
-    Écrit une ligne dans le fichier CSV via le writer.
-    """
-    writer.writerow([id_class, nom_class, temps_sec, id_local, confiance])
-
-import os
 
 def trait_tracking(model, input_path, output_folder=None, conf=0.4,
                    class_names=None, class_colors=None, tracker=None):
@@ -75,10 +61,9 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     tracker = create_tracker(tracker=tracker)
     id_manager = IDLocalManagerFast()
 
-    # Ouvrir CSV brut pour détection
     csvfile, writer, csv_raw_path = open_csv_for_detections(output_folder)
 
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30  # Fallback à 30 si indisponible
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30
 
     for frame_idx in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
@@ -93,6 +78,8 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
 
         id_manager.update_removed(tracker.removed_stracks)
 
+        frame_int = math.floor(frame_idx)
+
         for track in online_targets:
             bbox = track.tlbr
             track_id = track.track_id
@@ -104,35 +91,25 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
             color = new_colors.get(class_id, (0, 255, 0))
             x1, y1, x2, y2 = map(int, bbox)
 
-            # Temps en secondes
-            temps_sec = frame_idx / fps
+            write_detection(writer, local_id, class_name, conf_score, frame_int, "")
 
-            # Écrire dans CSV brut
-            write_detection(writer, class_id, class_name, temps_sec, local_id, conf_score)
-
-            # Dessiner bbox et texte
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
         video_out.write(frame)
 
-    # Fermer ressources
     csvfile.close()
     video_out.release()
     cap.release()
 
-    # Chemin du fichier filtré final
-    filtered_csv_path = (output_folder or '.') + "/detections_filtered.csv"
-
-    # Filtrer le fichier brut pour garder max confiance par id_local
+    filtered_csv_path = (output_folder or os.getcwd()) + "/detections_filtered.csv"
     filter_max_conf_per_idlocal(csv_raw_path, filtered_csv_path)
 
-    # Supprimer le fichier brut pour libérer de l'espace
     if os.path.exists(csv_raw_path):
         os.remove(csv_raw_path)
 
     print(f"Vidéo sortie enregistrée ici : {output_path}")
-    print(f"Fichier CSV final filtré enregistré ici : {filtered_csv_path}")
+    print(f"Fichier CSV final  enregistré ici : {filtered_csv_path}")
 
     
