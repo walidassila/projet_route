@@ -91,7 +91,7 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
             color = new_colors.get(class_id, (0, 255, 0))
             x1, y1, x2, y2 = map(int, bbox)
 
-            write_detection(writer, local_id, class_name, conf_score, frame_int, "")
+            write_detection(writer, local_id, model.names[class_id], conf_score, frame_int, "")
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
