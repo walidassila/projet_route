@@ -57,6 +57,8 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     tracker = create_tracker(tracker=tracker)
     id_manager = IDLocalManager()  # nouvelle version optimisée
 
+    total_removed = 0  # initialisation compteur
+
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
         if not ret:
@@ -94,3 +96,5 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
 
     video_out.release()
     cap.release()
+
+    print(f"=== FIN TRAITEMENT ===\nTotal des ID actifs supprimés : {total_removed}")
