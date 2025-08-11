@@ -61,6 +61,10 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     tracker = create_tracker(tracker=tracker)
     id_manager = IDLocalManagerFast()
 
+    # Créer dossier Anomalie_detected
+    anomalies_dir = os.path.join(output_folder or os.getcwd(), "Anomalie_detected")
+    os.makedirs(anomalies_dir, exist_ok=True)
+
     csvfile, writer, csv_raw_path = open_csv_for_detections(output_folder)
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
@@ -91,11 +95,18 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
             color = new_colors.get(class_id, (0, 255, 0))
             x1, y1, x2, y2 = map(int, bbox)
 
-            write_detection(writer, local_id, model.names[class_id], conf_score, frame_int, "")
-
+            # Annoter la frame (bbox + texte)
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+            # Sauvegarder image annotée (frame complète) dans anomalies_dir
+            anomaly_filename = f"{local_id}_{model.names[class_id]}_{frame_int}.jpg"
+            anomaly_path = os.path.join(anomalies_dir, anomaly_filename)
+            cv2.imwrite(anomaly_path, frame)
+
+            # Écrire dans CSV avec chemin image
+            write_detection(writer, local_id, model.names[class_id], conf_score, frame_int, anomaly_path)
 
         video_out.write(frame)
 
@@ -104,12 +115,11 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     cap.release()
 
     filtered_csv_path = (output_folder or os.getcwd()) + "/detections_filtered.csv"
-    filtering(csv_raw_path, filtered_csv_path)
+    filter(csv_raw_path, filtered_csv_path)
 
     if os.path.exists(csv_raw_path):
         os.remove(csv_raw_path)
 
     print(f"Vidéo sortie enregistrée ici : {output_path}")
-    print(f"Fichier CSV final  enregistré ici : {filtered_csv_path}")
-
-    
+    print(f"Fichier CSV final enregistré ici : {filtered_csv_path}")
+    print(f"Dossier images anomalies : {anomalies_dir}")
