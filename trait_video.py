@@ -98,10 +98,8 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
             id_manager.remove(removed_id, removed_class)
             after_count = len(id_manager.active_ids.get(removed_class, []))
 
-            if before_count != after_count:
+        if before_count != after_count:
                 print(f"[REMOVE] Suppression : global_id={removed_id}, classe={removed_class}")
-            else:
-                print(f"[BLOCK] Blocage suppression (dernier local_id) : global_id={removed_id}, classe={removed_class}")
 
         video_out.write(frame)
 
