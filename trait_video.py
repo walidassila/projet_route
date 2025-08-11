@@ -1,5 +1,6 @@
 import cv2
 from tqdm import tqdm
+from csv_storage import filter_max_conf_per_idlocal
 from video_utils import prepare_video
 from bounding_boxes import draw_boxes,draw_tracks
 import ultralytics
@@ -61,6 +62,8 @@ def write_detection(writer, id_class, nom_class, temps_sec, id_local, confiance)
     """
     writer.writerow([id_class, nom_class, temps_sec, id_local, confiance])
 
+import os
+
 def trait_tracking(model, input_path, output_folder=None, conf=0.4,
                    class_names=None, class_colors=None, tracker=None):
 
@@ -72,10 +75,10 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     tracker = create_tracker(tracker=tracker)
     id_manager = IDLocalManagerFast()
 
-    # Ouvrir CSV
-    csvfile, writer, csv_path = open_csv_for_detections(output_folder)
+    # Ouvrir CSV brut pour détection
+    csvfile, writer, csv_raw_path = open_csv_for_detections(output_folder)
 
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30  # Fallback à 30 si non dispo
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30  # Fallback à 30 si indisponible
 
     for frame_idx in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
@@ -101,23 +104,35 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
             color = new_colors.get(class_id, (0, 255, 0))
             x1, y1, x2, y2 = map(int, bbox)
 
-            # Calcul temps en secondes
+            # Temps en secondes
             temps_sec = frame_idx / fps
 
-            # Écriture dans CSV
+            # Écrire dans CSV brut
             write_detection(writer, class_id, class_name, temps_sec, local_id, conf_score)
 
-            # Dessiner la bbox et texte
+            # Dessiner bbox et texte
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
         video_out.write(frame)
 
-    # Fermer les fichiers/ressources
+    # Fermer ressources
     csvfile.close()
     video_out.release()
     cap.release()
+
+    # Chemin du fichier filtré final
+    filtered_csv_path = (output_folder or '.') + "/detections_filtered.csv"
+
+    # Filtrer le fichier brut pour garder max confiance par id_local
+    filter_max_conf_per_idlocal(csv_raw_path, filtered_csv_path)
+
+    # Supprimer le fichier brut pour libérer de l'espace
+    if os.path.exists(csv_raw_path):
+        os.remove(csv_raw_path)
+
     print(f"Vidéo sortie enregistrée ici : {output_path}")
-    print(f"Fichier CSV enregistré ici : {csv_path}")
+    print(f"Fichier CSV final filtré enregistré ici : {filtered_csv_path}")
+
     
