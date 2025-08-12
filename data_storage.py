@@ -52,7 +52,7 @@ def filter_detections_keep_max_conf(conn, cursor):
     SELECT *
     FROM (
         SELECT *,
-            ROW_NUMBER() OVER (PARTITION BY id_affichage, id_class ORDER BY confiance DESC, id ASC) as rn
+            ROW_NUMBER() OVER (PARTITION BY id_affichage, id_class ORDER BY confiance DESC, id ASC) AS rn
         FROM detections
     ) sub
     WHERE rn = 1;
@@ -63,6 +63,7 @@ def filter_detections_keep_max_conf(conn, cursor):
     # Supprimer les données brutes 
     cursor.execute('DROP TABLE detections')
     conn.commit()
+
 
 
 
