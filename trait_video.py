@@ -1,6 +1,6 @@
 import cv2
 from tqdm import tqdm
-from data_storage import open_db_for_detections,insert_detections_batch,filter_detections_keep_max_conf,export_detections_as_images,export_filtered_db_to_csv_and_cleanup
+from data_storage import open_db_for_detections,insert_detections_batch,filter_detections_keep_max_conf,export_detections_as_images,export_filtered_db_to_csv_and_cleanup,create_final_zip
 from video_utils import prepare_video_processing
 from bounding_boxes import draw_boxes,draw_tracks
 import ultralytics
@@ -115,9 +115,9 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
     zip_path = export_detections_as_images(conn, cursor, cap, output_folder, new_colors, video_path)
     cap.release()  # release après le traitement final
     csv_path = export_filtered_db_to_csv_and_cleanup(conn, cursor, db_path, output_folder, video_path)
+    final_zip = create_final_zip(output_path, csv_path, zip_path, output_folder)
     
-    print(f"Vidéo sortie enregistrée ici : {output_path}")
-    print(f"Archive ZIP créée ici : {zip_path}")
-    print(f"Fichier CSV exporté ici : {csv_path}")
+    print(f"Resultat finale créée ici : {final_zip}")
+
     
     

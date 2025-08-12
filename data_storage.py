@@ -202,5 +202,26 @@ def export_filtered_db_to_csv_and_cleanup(conn, cursor, db_path, output_folder, 
 
 
 
+def create_final_zip(video_path, csv_path, images_zip_path, output_folder=None):
+    video_name = os.path.splitext(os.path.basename(video_path))[0]
+    output_folder = output_folder or os.getcwd()
+    final_zip_path = os.path.join(output_folder, f"result_{video_name}.zip")
+
+    with zipfile.ZipFile(final_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(video_path, arcname=os.path.basename(video_path))
+        zipf.write(csv_path, arcname=os.path.basename(csv_path))
+        zipf.write(images_zip_path, arcname=os.path.basename(images_zip_path))
+
+    # Supprimer les fichiers intermédiaires
+    os.remove(csv_path)
+    os.remove(images_zip_path)
+    # Optionnel : si tu veux supprimer la vidéo aussi, décommente la ligne suivante
+    # os.remove(video_path)
+
+    return final_zip_path
+
+
+
+
 
 
