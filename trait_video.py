@@ -1,6 +1,6 @@
 import cv2
 from tqdm import tqdm
-from csv_storage import filtering,open_csv_for_detections,write_detection
+from csv_storage import filtering,open_csv_for_detections,write_detection,process_and_annotate_filtered_csv
 from video_utils import prepare_video
 from bounding_boxes import draw_boxes,draw_tracks
 import ultralytics
@@ -14,13 +14,13 @@ import math
 import csv
 np.float = float
 
-def prepare_video_processing(model,input_path, output_folder=None, class_names=None, class_colors=None):
+def prepare_video_processing(model,video_path, output_folder=None, class_names=None, class_colors=None):
 
     if output_folder is None:
         output_folder = os.getcwd()
     
     # Prépare la vidéo (cette fonction doit exister dans ton code)
-    cap, frame_count, video_out, output_path = prepare_video(input_path, output_folder, fourcc_code='mp4v')
+    cap, frame_count, video_out, output_path = prepare_video(video_path, output_folder, fourcc_code='mp4v')
     
     # Gère les noms des classes
     if class_names:
@@ -35,8 +35,8 @@ def prepare_video_processing(model,input_path, output_folder=None, class_names=N
 
 
 
-def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,class_colors=None):
-    cap, frame_count, video_out, output_path, new_names, new_colors=prepare_video_processing(model,input_path,output_folder=output_folder,class_names=class_names,class_colors=class_colors)
+def trait_video(model,video_path,output_folder=None,conf=0.4,class_names=None,class_colors=None):
+    cap, frame_count, video_out, output_path, new_names, new_colors=prepare_video_processing(model,video_path,output_folder=output_folder,class_names=class_names,class_colors=class_colors)
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
         if not ret:
@@ -52,11 +52,11 @@ def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,cl
 
 #fichier trait_vedeo.py
 
-def trait_tracking(model, input_path, output_folder=None, conf=0.4,
+def trait_tracking(model, video_path, output_folder=None, conf=0.4,
                    class_names=None, class_colors=None, tracker=None):
 
     cap, frame_count, video_out, output_path, new_names, new_colors = prepare_video_processing(
-        model, input_path, output_folder=output_folder,
+        model, video_path, output_folder=output_folder,
         class_names=class_names, class_colors=class_colors
     )
 
@@ -107,14 +107,25 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     video_out.release()
     cap.release()
 
-    base_name = os.path.splitext(os.path.basename(input_path))[0]
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
     filtered_csv_path = os.path.join(output_folder or os.getcwd(), f"detections_{base_name}.csv")
+    
     filtering(csv_raw_path, filtered_csv_path)
 
     if os.path.exists(csv_raw_path):
         os.remove(csv_raw_path)
 
-    print(f"Vidéo sortie enregistrée ici : {output_path}")
-    print(f"Fichier CSV final  enregistré ici : {filtered_csv_path}")
+    # Crée dossier des images annotées + zip + CSV mis à jour
+    annotated_folder = os.path.join(output_folder or os.getcwd(), "annotated_frames")
+    csv_with_paths, zip_path = process_and_annotate_filtered_csv(
+        filtered_csv_path,
+        video_path,
+        annotated_folder,
+        new_colors
+    )
 
+    # Affiche uniquement les fichiers finaux importants
+    print(f"Vidéo sortie enregistrée ici : {output_path}")
+    print(f"Fichier CSV final filtré enregistré ici : {filtered_csv_path}")
+    print(f"Dossier  images detetections  sauvegardé ici : {zip_path}")
     
