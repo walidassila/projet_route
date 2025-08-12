@@ -1,6 +1,6 @@
 import cv2
 from tqdm import tqdm
-from csv_storage import filtering,open_csv_for_detections,write_detection,process_and_annotate_filtered_csv
+from data_storage import open_db_for_detections,insert_detections_batch,filter_detections_keep_max_conf
 from video_utils import prepare_video
 from bounding_boxes import draw_boxes,draw_tracks
 import ultralytics
@@ -64,7 +64,8 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
     id_manager = IDLocalManagerFast()
 
 
-    csvfile, writer, csv_raw_path = open_csv_for_detections(output_folder)
+    conn, cursor, db_path = open_db_for_detections(output_folder)
+    batch_inserts = []
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
 
@@ -93,39 +94,59 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
             class_name = new_names.get(class_id, 'Unknown')
             color = new_colors.get(class_id, (0, 255, 0))
             x1, y1, x2, y2 = map(int, bbox)
+            bbox_str = f"{x1},{y1},{x2},{y2}"
+            
+            batch_inserts.append((
+                class_id,
+                class_name,
+                local_id,
+                bbox_str,
+                frame_int,
+                conf_score
+            ))
+            
 
-            write_detection(writer, class_id, model.names[class_id], local_id, (x1, y1, x2, y2), frame_int, conf_score, "")
-
-
+            # Dessiner sur la frame
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
         video_out.write(frame)
+        if len(batch_inserts) >= 100:
+            insert_detections_batch(cursor, batch_inserts)
+            conn.commit()
+            batch_inserts.clear()
 
-    csvfile.close()
+    
+        # Insérer le reste des détections
+    if batch_inserts:
+        insert_detections_batch(cursor, batch_inserts)
+        conn.commit()
+        batch_inserts.clear()
+    
     video_out.release()
     cap.release()
 
+    # Filtrer les détections dans la base pour garder max confiance par id_affichage/id_class
+    filter_detections_keep_max_conf(conn, cursor)
+    # Export table filtrée vers CSV
     base_name = os.path.splitext(os.path.basename(video_path))[0]
-    filtered_csv_path = os.path.join(output_folder or os.getcwd(), f"detections_{base_name}.csv")
+    csv_path = os.path.join(output_folder or os.getcwd(), f"detections_{base_name}.csv")
+    cursor.execute('SELECT id_class, Anomalie, id_affichage, boundingbox, frame, confiance, image_path FROM filtered_detections')
+    rows = cursor.fetchall()
+
+    with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["id_class", "Anomalie", "id_affichage", "boundingbox", "frame", "confiance", "image_path"])
+        writer.writerows(rows)
     
-    filtering(csv_raw_path, filtered_csv_path)
+        # Fermer DB et supprimer fichier SQLite
+    conn.close()
+    if os.path.exists(db_path):
+        os.remove(db_path)
 
-    if os.path.exists(csv_raw_path):
-        os.remove(csv_raw_path)
 
-    # Crée dossier des images annotées + zip + CSV mis à jour
-    annotated_folder = os.path.join(output_folder or os.getcwd(), "annotated_frames")
-    csv_with_paths, zip_path = process_and_annotate_filtered_csv(
-        filtered_csv_path,
-        video_path,
-        annotated_folder,
-        new_colors
-    )
-
-    # Affiche uniquement les fichiers finaux importants
     print(f"Vidéo sortie enregistrée ici : {output_path}")
-    print(f"Fichier CSV final filtré enregistré ici : {filtered_csv_path}")
-    print(f"Dossier  images detetections  sauvegardé ici : {zip_path}")
+    print(f"Fichier CSV final filtré enregistré ici : {csv_path}")
+    
     
