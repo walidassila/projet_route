@@ -5,6 +5,7 @@ import sqlite3
 import shutil
 import zipfile
 from collections import defaultdict
+import logging
 
 def open_db_for_detections(output_folder):
     db_path = os.path.join(output_folder or '.', "detections.db")
@@ -37,7 +38,7 @@ def open_db_for_detections(output_folder):
 def insert_detections_batch(cursor, detections_list):
     """
     detections_list = [
-        (id_class, annomalie, id_affichage, boundingbox, frame, confiance),
+        (id_class, anomalie, id_affichage, boundingbox, frame, confiance),
         ...
     ]
     """
@@ -71,11 +72,18 @@ def filter_detections_keep_max_conf(conn, cursor):
 
 
 
-def export_detections_as_images(conn, cursor, cap, output_folder, new_colors):
+def export_detections_as_images(conn, cursor, cap, output_folder, new_colors, video_path=None):
     import logging
-    base_output = os.path.join(output_folder or os.getcwd(), "detections_images")
+
+    if video_path:
+        video_name = os.path.splitext(os.path.basename(video_path))[0]
+    else:
+        video_name = "video"
+
+    # Construire dossier base avec nom vidéo
+    base_output = os.path.join(output_folder or os.getcwd(), f"detections_images_{video_name}")
     os.makedirs(base_output, exist_ok=True)
-    
+
     # 1. Créer dossiers pour chaque anomalie
     cursor.execute("SELECT DISTINCT Anomalie FROM filtered_detections")
     anomalies = [row[0] for row in cursor.fetchall()]
@@ -85,7 +93,7 @@ def export_detections_as_images(conn, cursor, cap, output_folder, new_colors):
         path = os.path.join(base_output, safe_name)
         os.makedirs(path, exist_ok=True)
         anomaly_dirs[anomaly] = path
-    
+
     # 2. Récupérer les détections triées
     cursor.execute("""
         SELECT id, id_class, Anomalie, id_affichage, boundingbox, frame, confiance, image_path
@@ -93,19 +101,19 @@ def export_detections_as_images(conn, cursor, cap, output_folder, new_colors):
         ORDER BY frame ASC
     """)
     rows = cursor.fetchall()
-    
+
     detections_by_frame = defaultdict(list)
     for row in rows:
         detections_by_frame[row[5]].append(row)
-    
-    # 3. Pour réduire les traitements répétés, on chargera une fois par frame
+
+    # 3. Chargement et annotation des frames
     conn_isolation = False
     try:
         conn_isolation = conn.isolation_level
-        conn.isolation_level = None  # désactive autocommit pour regrouper commit
+        conn.isolation_level = None
     except Exception:
-        pass  # si erreur, continuer quand même
-    
+        pass
+
     try:
         for frame_num in sorted(detections_by_frame.keys()):
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
@@ -113,8 +121,7 @@ def export_detections_as_images(conn, cursor, cap, output_folder, new_colors):
             if not ret:
                 logging.warning(f"Impossible de lire la frame {frame_num}")
                 continue
-            
-            # Dessiner toutes les détections sur cette frame (une fois)
+
             for detection in detections_by_frame[frame_num]:
                 det_id, id_class, anomaly, id_affichage, bbox_str, frame_idx, conf, img_path = detection
                 color = new_colors.get(id_class, (0, 255, 0))
@@ -122,27 +129,30 @@ def export_detections_as_images(conn, cursor, cap, output_folder, new_colors):
                 cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                 cv2.putText(frame, f"{anomaly} #{id_affichage}", (x1, y1 - 10), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-            
+
             anomalies_in_frame = set(d[2] for d in detections_by_frame[frame_num])
             for anomaly in anomalies_in_frame:
                 save_dir = anomaly_dirs[anomaly]
                 filename = f"frame_{frame_num}.jpg"
                 save_path = os.path.join(save_dir, filename)
                 cv2.imwrite(save_path, frame)
-                
+
+                # Calcul du chemin relatif à partir du dossier PARENT de base_output
+                parent_dir = os.path.dirname(base_output)
+                rel_save_path = os.path.relpath(save_path, start=parent_dir)
+
                 ids_to_update = [d[0] for d in detections_by_frame[frame_num] if d[2] == anomaly]
                 cursor.executemany(
                     "UPDATE filtered_detections SET image_path = ? WHERE id = ?",
-                    [(save_path, det_id) for det_id in ids_to_update]
+                    [(rel_save_path, det_id) for det_id in ids_to_update]
                 )
-        
-        conn.commit()  # commit une fois après toutes les mises à jour
+
+        conn.commit()
     finally:
-        # Restaurer isolation_level initial
         if conn_isolation is not False:
             conn.isolation_level = conn_isolation
-    
-    # 4. Zip le dossier
+
+    # 4. Création archive ZIP
     zip_path = base_output + ".zip"
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
         for root, _, files in os.walk(base_output):
@@ -150,24 +160,30 @@ def export_detections_as_images(conn, cursor, cap, output_folder, new_colors):
                 full_path = os.path.join(root, file)
                 arcname = os.path.relpath(full_path, base_output)
                 zipf.write(full_path, arcname)
-    
-    # 5. Supprimer dossier source
+
+    # 5. Suppression dossier temporaire
     shutil.rmtree(base_output)
-    
+
     return zip_path
 
 
 
+
 def export_filtered_db_to_csv_and_cleanup(conn, cursor, db_path, output_folder, video_path):
-    import csv
-    import os
+ 
 
     base_name = os.path.splitext(os.path.basename(video_path))[0]
     csv_path = os.path.join(output_folder or os.getcwd(), f"detections_filtered_{base_name}.csv")
 
-    cursor.execute('SELECT * FROM filtered_detections')
+    # Sélectionner uniquement les colonnes voulues
+    cursor.execute('''
+        SELECT id_class, Anomalie, id_affichage, boundingbox, frame, confiance, image_path
+        FROM filtered_detections
+    ''')
     rows = cursor.fetchall()
-    col_names = [desc[0] for desc in cursor.description]
+
+    # Définir explicitement les noms des colonnes à écrire
+    col_names = ['id_class', 'Anomalie', 'id_affichage', 'boundingbox', 'frame', 'confiance', 'image_path']
 
     with open(csv_path, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)

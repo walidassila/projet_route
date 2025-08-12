@@ -112,7 +112,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
 
     # Filtrer les détections dans la base pour garder max confiance par id_affichage/id_class
     filter_detections_keep_max_conf(conn, cursor)
-    zip_path = export_detections_as_images(conn, cursor, cap, output_folder, new_colors)
+    zip_path = export_detections_as_images(conn, cursor, cap, output_folder, new_colors, video_path)
     cap.release()  # release après le traitement final
     csv_path = export_filtered_db_to_csv_and_cleanup(conn, cursor, db_path, output_folder, video_path)
     
