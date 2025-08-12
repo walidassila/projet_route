@@ -48,17 +48,14 @@ def filter_detections_keep_max_conf(conn, cursor):
     # Crée la table filtrée à partir des données brutes
     cursor.execute('DROP TABLE IF EXISTS filtered_detections')
     cursor.execute('''
-        CREATE TABLE filtered_detections AS
-        SELECT d1.*
-        FROM detections d1
-        INNER JOIN (
-            SELECT id_affichage, id_class, MAX(confiance) AS max_conf
-            FROM detections
-            GROUP BY id_affichage, id_class
-        ) d2
-        ON d1.id_affichage = d2.id_affichage 
-           AND d1.id_class = d2.id_class 
-           AND d1.confiance = d2.max_conf
+    CREATE TABLE filtered_detections AS
+    SELECT *
+    FROM (
+        SELECT *,
+            ROW_NUMBER() OVER (PARTITION BY id_affichage, id_class ORDER BY confiance DESC, id ASC) as rn
+        FROM detections
+    ) sub
+    WHERE rn = 1;
     ''')
     
     conn.commit()
