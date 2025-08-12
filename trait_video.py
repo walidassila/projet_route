@@ -88,7 +88,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
             bbox = track.tlbr
             track_id = track.track_id
             class_id = int(track.class_id)
-            conf_score = float(track.score) if hasattr(track, 'score') else 0.0
+            conf_score = round(float(track.score if hasattr(track, 'score') else 0.0), 2)
 
             local_id = id_manager.get_or_add(track_id, class_id)
             class_name = new_names.get(class_id, 'Unknown')
