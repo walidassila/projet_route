@@ -33,6 +33,8 @@ def prepare_video_processing(model,input_path, output_folder=None, class_names=N
     
     return cap, frame_count, video_out, output_path, new_names, class_colors
 
+
+
 def trait_video(model,input_path,output_folder=None,conf=0.4,class_names=None,class_colors=None):
     cap, frame_count, video_out, output_path, new_names, new_colors=prepare_video_processing(model,input_path,output_folder=output_folder,class_names=class_names,class_colors=class_colors)
     for _ in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
@@ -61,9 +63,6 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     tracker = create_tracker(tracker=tracker)
     id_manager = IDLocalManagerFast()
 
-        # 📂 Dossier des anomalies détectées
-    anomalies_dir = os.path.join(output_folder or os.getcwd(), "Anomalie_detected")
-    os.makedirs(anomalies_dir, exist_ok=True)
 
     csvfile, writer, csv_raw_path = open_csv_for_detections(output_folder)
 
@@ -82,7 +81,7 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
 
         id_manager.update_removed(tracker.removed_stracks)
 
-        frame_int = math.floor(frame_idx)
+        frame_int = int(frame_idx)
 
         for track in online_targets:
             bbox = track.tlbr
@@ -95,7 +94,8 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
             color = new_colors.get(class_id, (0, 255, 0))
             x1, y1, x2, y2 = map(int, bbox)
 
-            write_detection(writer, local_id, model.names[class_id], conf_score, frame_int, "")
+            write_detection(writer, class_id, model.names[class_id], local_id, (x1, y1, x2, y2), frame_int, conf_score, "")
+
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
             cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
@@ -107,7 +107,8 @@ def trait_tracking(model, input_path, output_folder=None, conf=0.4,
     video_out.release()
     cap.release()
 
-    filtered_csv_path = (output_folder or os.getcwd()) + "/detections_filtered.csv"
+    base_name = os.path.splitext(os.path.basename(input_path))[0]
+    filtered_csv_path = os.path.join(output_folder or os.getcwd(), f"detections_{base_name}.csv")
     filtering(csv_raw_path, filtered_csv_path)
 
     if os.path.exists(csv_raw_path):
