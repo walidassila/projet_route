@@ -1,5 +1,6 @@
 import cv2
 import os
+from labels_utils import replace_name,replace_color
 
 def get_video_info(input_video_path):
     cap = cv2.VideoCapture(input_video_path)
@@ -22,3 +23,22 @@ def prepare_video(input_path, output_folder, fourcc_code='mp4v'):
     video_out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
     
     return cap,frame_count,video_out,output_path
+
+def prepare_video_processing(model,video_path, output_folder=None, class_names=None, class_colors=None):
+
+    if output_folder is None:
+        output_folder = os.getcwd()
+    
+    # Prépare la vidéo (cette fonction doit exister dans ton code)
+    cap, frame_count, video_out, output_path = prepare_video(video_path, output_folder, fourcc_code='mp4v')
+    
+    # Gère les noms des classes
+    if class_names:
+        new_names = replace_name(model, class_names=class_names)
+    else:
+        new_names = model.names
+    
+    # Gère les couleurs des classes
+    class_colors = replace_color(model, class_colors=class_colors)
+    
+    return cap, frame_count, video_out, output_path, new_names, class_colors

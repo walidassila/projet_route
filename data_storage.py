@@ -2,6 +2,9 @@ import cv2
 import csv
 import os
 import sqlite3
+import shutil
+import zipfile
+from collections import defaultdict
 
 def open_db_for_detections(output_folder):
     db_path = os.path.join(output_folder or '.', "detections.db")
@@ -68,91 +71,120 @@ def filter_detections_keep_max_conf(conn, cursor):
 
 
 
-
-
-
-
-
-def process_and_annotate_filtered_csv(
-    input_csv_path, video_path, output_folder, new_colors
-):
-    # Créer dossier parent
-    os.makedirs(output_folder, exist_ok=True)
-
-    # Lire tout CSV
-    with open(input_csv_path, newline='', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-
-    # Extraire anomalies distinctes pour créer dossier
-    anomalies = set(row['Annomalie'] for row in rows)
+def export_detections_as_images(conn, cursor, cap, output_folder, new_colors):
+    import logging
+    base_output = os.path.join(output_folder or os.getcwd(), "detections_images")
+    os.makedirs(base_output, exist_ok=True)
+    
+    # 1. Créer dossiers pour chaque anomalie
+    cursor.execute("SELECT DISTINCT Anomalie FROM filtered_detections")
+    anomalies = [row[0] for row in cursor.fetchall()]
     anomaly_dirs = {}
-    for anom in anomalies:
-        path_dir = os.path.join(output_folder, anom)
-        os.makedirs(path_dir, exist_ok=True)
-        anomaly_dirs[anom] = path_dir
-
-    # Ouvrir vidéo
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise IOError(f"Impossible d'ouvrir la vidéo {video_path}")
-
-    # Préparer CSV sortie
-    output_csv_path = os.path.join(output_folder, 'filtered_with_paths.csv')
-    with open(output_csv_path, mode='w', newline='', encoding='utf-8') as out_csv:
-        fieldnames = ['id_class', 'Annomalie', 'id_affichage', 'boundingbox', 'frame', 'confiance', 'image_path']
-        writer = csv.DictWriter(out_csv, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for row in rows:
-            frame_idx = int(row['frame'])
-            anom = row['Annomalie']
-            bbox_str = row['boundingbox']  # "x1,y1,x2,y2"
-            id_class = row['id_class']
-            id_affichage = row['id_affichage']
-            confiance = row['confiance']
-
-            # Lire frame demandée
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-            ret, frame_img = cap.read()
+    for anomaly in anomalies:
+        safe_name = anomaly.replace(" ", "_").replace("/", "_")
+        path = os.path.join(base_output, safe_name)
+        os.makedirs(path, exist_ok=True)
+        anomaly_dirs[anomaly] = path
+    
+    # 2. Récupérer les détections triées
+    cursor.execute("""
+        SELECT id, id_class, Anomalie, id_affichage, boundingbox, frame, confiance, image_path
+        FROM filtered_detections
+        ORDER BY frame ASC
+    """)
+    rows = cursor.fetchall()
+    
+    detections_by_frame = defaultdict(list)
+    for row in rows:
+        detections_by_frame[row[5]].append(row)
+    
+    # 3. Pour réduire les traitements répétés, on chargera une fois par frame
+    conn_isolation = False
+    try:
+        conn_isolation = conn.isolation_level
+        conn.isolation_level = None  # désactive autocommit pour regrouper commit
+    except Exception:
+        pass  # si erreur, continuer quand même
+    
+    try:
+        for frame_num in sorted(detections_by_frame.keys()):
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_num)
+            ret, frame = cap.read()
             if not ret:
-                # Frame non trouvée, passer silencieusement
+                logging.warning(f"Impossible de lire la frame {frame_num}")
                 continue
-
-            # Dessiner bbox de la ligne seulement
-            x1, y1, x2, y2 = map(int, bbox_str.split(','))
-            color = new_colors.get(int(id_class), (0, 255, 0))
-            cv2.rectangle(frame_img, (x1, y1), (x2, y2), color, 2)
-            cv2.putText(frame_img, anom, (x1, max(0, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-
-            # Sauvegarder image annotée dans dossier anomalie
-            img_filename = f"frame{frame_idx}_id{id_affichage}.jpg"
-            img_path = os.path.join(anomaly_dirs[anom], img_filename)
-            cv2.imwrite(img_path, frame_img)
-
-            # Écrire ligne CSV mise à jour avec path
-            writer.writerow({
-                'id_class': id_class,
-                'Annomalie': anom,
-                'id_affichage': id_affichage,
-                'boundingbox': bbox_str,
-                'frame': frame_idx,
-                'confiance': confiance,
-                'image_path': img_path
-            })
-
-    cap.release()
-
-    # Zipper dossier parent
-    zip_path = os.path.join(output_folder, "annotated_frames.zip")
+            
+            # Dessiner toutes les détections sur cette frame (une fois)
+            for detection in detections_by_frame[frame_num]:
+                det_id, id_class, anomaly, id_affichage, bbox_str, frame_idx, conf, img_path = detection
+                color = new_colors.get(id_class, (0, 255, 0))
+                x1, y1, x2, y2 = map(int, bbox_str.split(","))
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(frame, f"{anomaly} #{id_affichage}", (x1, y1 - 10), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            
+            anomalies_in_frame = set(d[2] for d in detections_by_frame[frame_num])
+            for anomaly in anomalies_in_frame:
+                save_dir = anomaly_dirs[anomaly]
+                filename = f"frame_{frame_num}.jpg"
+                save_path = os.path.join(save_dir, filename)
+                cv2.imwrite(save_path, frame)
+                
+                ids_to_update = [d[0] for d in detections_by_frame[frame_num] if d[2] == anomaly]
+                cursor.executemany(
+                    "UPDATE filtered_detections SET image_path = ? WHERE id = ?",
+                    [(save_path, det_id) for det_id in ids_to_update]
+                )
+        
+        conn.commit()  # commit une fois après toutes les mises à jour
+    finally:
+        # Restaurer isolation_level initial
+        if conn_isolation is not False:
+            conn.isolation_level = conn_isolation
+    
+    # 4. Zip le dossier
+    zip_path = base_output + ".zip"
     with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, _, files in os.walk(output_folder):
+        for root, _, files in os.walk(base_output):
             for file in files:
-                if file == "annotated_frames.zip" or file == os.path.basename(output_csv_path):
-                    continue
-                file_path = os.path.join(root, file)
-                arcname = os.path.relpath(file_path, output_folder)
-                zipf.write(file_path, arcname)
+                full_path = os.path.join(root, file)
+                arcname = os.path.relpath(full_path, base_output)
+                zipf.write(full_path, arcname)
+    
+    # 5. Supprimer dossier source
+    shutil.rmtree(base_output)
+    
+    return zip_path
 
-    # Silence total, pas de print
-    return output_csv_path, zip_path
+
+
+def export_filtered_db_to_csv_and_cleanup(conn, cursor, db_path, output_folder, video_path):
+    import csv
+    import os
+
+    base_name = os.path.splitext(os.path.basename(video_path))[0]
+    csv_path = os.path.join(output_folder or os.getcwd(), f"detections_filtered_{base_name}.csv")
+
+    cursor.execute('SELECT * FROM filtered_detections')
+    rows = cursor.fetchall()
+    col_names = [desc[0] for desc in cursor.description]
+
+    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(col_names)
+        writer.writerows(rows)
+
+    # Fermer et supprimer la base SQLite
+    conn.close()
+    if os.path.exists(db_path):
+        os.remove(db_path)
+
+    return csv_path
+
+
+
+
+
+
+
+

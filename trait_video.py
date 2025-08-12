@@ -1,7 +1,7 @@
 import cv2
 from tqdm import tqdm
-from data_storage import open_db_for_detections,insert_detections_batch,filter_detections_keep_max_conf
-from video_utils import prepare_video
+from data_storage import open_db_for_detections,insert_detections_batch,filter_detections_keep_max_conf,export_detections_as_images,export_filtered_db_to_csv_and_cleanup
+from video_utils import prepare_video_processing
 from bounding_boxes import draw_boxes,draw_tracks
 import ultralytics
 import os
@@ -12,26 +12,9 @@ from id_local_manager import IDLocalManagerFast
 import numpy as np
 import math
 import csv
+
 np.float = float
 
-def prepare_video_processing(model,video_path, output_folder=None, class_names=None, class_colors=None):
-
-    if output_folder is None:
-        output_folder = os.getcwd()
-    
-    # Prépare la vidéo (cette fonction doit exister dans ton code)
-    cap, frame_count, video_out, output_path = prepare_video(video_path, output_folder, fourcc_code='mp4v')
-    
-    # Gère les noms des classes
-    if class_names:
-        new_names = replace_name(model, class_names=class_names)
-    else:
-        new_names = model.names
-    
-    # Gère les couleurs des classes
-    class_colors = replace_color(model, class_colors=class_colors)
-    
-    return cap, frame_count, video_out, output_path, new_names, class_colors
 
 
 
@@ -125,28 +108,16 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
         batch_inserts.clear()
     
     video_out.release()
-    cap.release()
+    
 
     # Filtrer les détections dans la base pour garder max confiance par id_affichage/id_class
     filter_detections_keep_max_conf(conn, cursor)
-    # Export table filtrée vers CSV
-    base_name = os.path.splitext(os.path.basename(video_path))[0]
-    csv_path = os.path.join(output_folder or os.getcwd(), f"detections_{base_name}.csv")
-    cursor.execute('SELECT id_class, Anomalie, id_affichage, boundingbox, frame, confiance, image_path FROM filtered_detections')
-    rows = cursor.fetchall()
-
-    with open(csv_path, 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(["id_class", "Anomalie", "id_affichage", "boundingbox", "frame", "confiance", "image_path"])
-        writer.writerows(rows)
+    zip_path = export_detections_as_images(conn, cursor, cap, output_folder, new_colors)
+    cap.release()  # release après le traitement final
+    csv_path = export_filtered_db_to_csv_and_cleanup(conn, cursor, db_path, output_folder, video_path)
     
-        # Fermer DB et supprimer fichier SQLite
-    conn.close()
-    if os.path.exists(db_path):
-        os.remove(db_path)
-
-
     print(f"Vidéo sortie enregistrée ici : {output_path}")
-    print(f"Fichier CSV final filtré enregistré ici : {csv_path}")
+    print(f"Archive ZIP créée ici : {zip_path}")
+    print(f"Fichier CSV exporté ici : {csv_path}")
     
     
