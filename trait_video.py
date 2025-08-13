@@ -11,7 +11,7 @@ from tracker_utils import yolo_to_bytetrack_detections
 from id_local_manager import IDLocalManagerFast
 import numpy as np
 import math
-from overlay_bar import draw_fixed_realtime_bar,append_final_summary
+from overlay_bar import draw_fixed_realtime_bar,append_final_summary,animate_final_results
 from collections import defaultdict
 import csv
 
@@ -57,9 +57,10 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
 
     for frame_idx in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
+        
         if not ret:
             break
-
+        
         results = model.predict(frame, imgsz=640, conf=conf, verbose=False)[0]
         frame_shape = frame.shape[:2]
 
@@ -100,9 +101,11 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
                 # Mise à jour du compteur pour le mini-bar
             current_counts[class_id] += 1
+            
         
         frame = draw_fixed_realtime_bar(frame, current_counts, new_colors, abbreviations, cols=2)
         video_out.write(frame)
+        last_frame=frame
         if len(batch_inserts) >= 100:
             insert_detections_batch(cursor, batch_inserts)
             conn.commit()
@@ -120,6 +123,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
 
     # Filtrer les détections dans la base pour garder max confiance par id_affichage/id_class
     filter_detections_keep_max_conf(conn, cursor)
+    
     cursor.execute("""
     SELECT id_class, COUNT(*) as total
     FROM filtered_detections
@@ -129,7 +133,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
     final_counts = {cls_id: total for cls_id, total in totals_db}
 
 # Ajouter le résumé final
-    append_final_summary(video_out, cap, frame_count, fps, final_counts, new_colors, abbreviations, cols=2)
+    animate_final_results(video_out, last_frame, fps, final_counts, new_colors, abbreviations, cols=2)
     video_out.release()
 
     zip_path = export_detections_as_images(conn, cursor, cap, output_folder, new_colors, video_path)
