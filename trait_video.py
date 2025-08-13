@@ -11,7 +11,7 @@ from tracker_utils import yolo_to_bytetrack_detections
 from id_local_manager import IDLocalManagerFast
 import numpy as np
 import math
-from overlay_bar import draw_fixed_realtime_bar,animate_final_bar_fixed
+from overlay_bar import draw_fixed_realtime_bar
 from collections import defaultdict
 import csv
 
