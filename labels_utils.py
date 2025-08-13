@@ -1,7 +1,7 @@
 import re
 import random
 import numpy as np
-np.float = float
+np.float = float 
 def generate_model_abbreviations(names_dict):
     """
     Génère un dictionnaire d'abréviations à partir des noms du modèle.
