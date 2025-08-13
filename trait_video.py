@@ -54,7 +54,6 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
     batch_inserts = []
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    
 
     for frame_idx in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
@@ -66,6 +65,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
 
         detections = yolo_to_bytetrack_detections(results)
         online_targets = tracker.update(detections, frame_shape, frame_shape)
+
         id_manager.update_removed(tracker.removed_stracks)
 
         frame_int = int(frame_idx)
@@ -102,27 +102,26 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
             current_counts[class_id] += 1
         
         frame = draw_fixed_realtime_bar(frame, current_counts, new_colors, abbreviations, cols=2)
-        
         video_out.write(frame)
-        
         if len(batch_inserts) >= 100:
             insert_detections_batch(cursor, batch_inserts)
             conn.commit()
             batch_inserts.clear()
 
+    
         # Insérer le reste des détections
     if batch_inserts:
         insert_detections_batch(cursor, batch_inserts)
         conn.commit()
         batch_inserts.clear()
     
+    video_out.release()
+    
+
     # Filtrer les détections dans la base pour garder max confiance par id_affichage/id_class
     filter_detections_keep_max_conf(conn, cursor)
-     
-    video_out.release() 
-    cap.release()  # release après le traitement final
-    
     zip_path = export_detections_as_images(conn, cursor, cap, output_folder, new_colors, video_path)
+    cap.release()  # release après le traitement final
     csv_path = export_filtered_db_to_csv_and_cleanup(conn, cursor, db_path, output_folder, video_path)
     final_zip = create_final_zip(output_path, csv_path, zip_path, output_folder)
     
