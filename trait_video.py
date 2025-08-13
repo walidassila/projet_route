@@ -11,7 +11,7 @@ from tracker_utils import yolo_to_bytetrack_detections
 from id_local_manager import IDLocalManagerFast
 import numpy as np
 import math
-from overlay_bar import draw_fixed_realtime_bar
+from overlay_bar import draw_fixed_realtime_bar,append_final_summary
 from collections import defaultdict
 import csv
 
@@ -115,11 +115,23 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
         conn.commit()
         batch_inserts.clear()
     
-    video_out.release()
+    
     
 
     # Filtrer les détections dans la base pour garder max confiance par id_affichage/id_class
     filter_detections_keep_max_conf(conn, cursor)
+    cursor.execute("""
+    SELECT id_class, COUNT(*) as total
+    FROM filtered_detections
+    GROUP BY id_class
+    """)
+    totals_db = cursor.fetchall()
+    final_counts = {cls_id: total for cls_id, total in totals_db}
+
+# Ajouter le résumé final
+    append_final_summary(video_out, cap, frame_count, fps, final_counts, new_colors, abbreviations, cols=2)
+    video_out.release()
+
     zip_path = export_detections_as_images(conn, cursor, cap, output_folder, new_colors, video_path)
     cap.release()  # release après le traitement final
     csv_path = export_filtered_db_to_csv_and_cleanup(conn, cursor, db_path, output_folder, video_path)

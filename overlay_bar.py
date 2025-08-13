@@ -3,16 +3,7 @@ import numpy as np
 from collections import defaultdict
 
 def draw_fixed_realtime_bar(frame, current_counts, class_colors, abbreviations, cols=2):
-    """
-    Dessine un cadre fixe en haut à gauche affichant le nombre d'anomalies détectées en temps réel.
 
-    Args:
-        frame (np.array): Image OpenCV.
-        current_counts (dict): Compte des anomalies par ID de classe {id_classe: count}.
-        class_colors (dict): Couleur par ID de classe {id_classe: (B,G,R)}.
-        abbreviations (dict): Abréviations par ID de classe {id_classe: abbr}.
-        cols (int): Nombre de colonnes pour organiser les classes.
-    """
     height, width = frame.shape[:2]
     overlay = frame.copy()
 
@@ -67,3 +58,21 @@ def draw_fixed_realtime_bar(frame, current_counts, class_colors, abbreviations, 
     cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0, frame)
 
     return frame
+
+def append_final_summary(video_out, cap, frame_count, fps, totals, class_colors, abbreviations, cols=2):
+    """
+    Ajoute à la vidéo 5 secondes avec la dernière frame comme background
+    et la barre récapitulative des totaux par classe.
+    """
+    # Charger la dernière frame
+    cap.set(cv2.CAP_PROP_POS_FRAMES, frame_count - 1)
+    ret, last_frame = cap.read()
+    if not ret:
+        last_frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+
+    # Dessiner la barre finale avec draw_fixed_realtime_bar
+    final_frame = draw_fixed_realtime_bar(last_frame.copy(), totals, class_colors, abbreviations, cols=cols)
+
+    # Ajouter 5 secondes de cette frame
+    for _ in range(int(fps * 5)):
+        video_out.write(final_frame)
