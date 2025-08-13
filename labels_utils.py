@@ -2,24 +2,35 @@ import re
 import random
 import numpy as np
 np.float = float
-def generate_abbreviation(text, length=4):
-    # Séparateurs possibles
-    separators = re.compile(r'[ _\.\-]+')
-    
-    # Trouve tous les séparateurs (pour garder la forme)
-    splits = separators.split(text)
-    seps = separators.findall(text)
-    
-    # Abréviation de chaque mot : premières lettres (ou mot entier si plus court)
-    abbrs = [word[:length].lower() for word in splits]
-    
-    # Reconstruire le texte en remettant les séparateurs d'origine
-    result = ""
-    for i, abbr in enumerate(abbrs):
-        result += abbr
-        if i < len(seps):
-            result += seps[i]
-    return result
+def generate_model_abbreviations(names_dict):
+    """
+    Génère un dictionnaire d'abréviations à partir des noms du modèle.
+
+    Args:
+        names_dict (dict): dictionnaire {id: nom_classe}
+
+    Returns:
+        dict: {id_classe: abréviation}
+    """
+    abbreviations = {}
+    separators = re.compile(r'[ _\.\-/#]+')  # espaces, _, ., -, /, #
+
+    for cls_id, cls_name in names_dict.items():
+        # Découper le nom en mots selon les séparateurs
+        words = separators.split(cls_name)
+        words = [w for w in words if w]  # supprimer les éventuels vides
+
+        if len(words) > 1:
+            # Plusieurs mots → première lettre de chaque mot
+            abbr = ''.join([w[0].upper() for w in words])
+        else:
+            # Un seul mot → 3 premiers caractères
+            abbr = words[0][:3].upper()
+
+        abbreviations[cls_id] = abbr
+
+    return abbreviations #ex sortie:{0: 'FAI', 1: 'FLP', 2: 'FT', 3: 'NDP', 4: 'ORN', 5: 'PEL', 6: 'PLU', 7: 'RES'}
+
 def replace_name(model,class_names):
     new_names={}
     for i, full_name in model.names.items():
