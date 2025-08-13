@@ -99,7 +99,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
             cv2.putText(frame, f'#id:{local_id} {class_name}', (x1, y1 - 10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
                 # Mise à jour du compteur pour le mini-bar
-            current_counts[class_name] += 1
+            current_counts[class_id] += 1
         
         frame = draw_fixed_realtime_bar(frame, current_counts, new_colors, abbreviations, cols=2)
         video_out.write(frame)
