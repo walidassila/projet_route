@@ -78,8 +78,8 @@ def animate_final_bar_fixed(video_out, last_frame, conn, new_colors, abbreviatio
     final_pos = np.array([w // 2 - bar_width // 2, h // 2 - box_height // 2], dtype=float)
     start_pos = np.array(current_bar_pos, dtype=float)
 
-    # Animation 1 seconde
-    anim_frames = int(fps)
+    # Animation 1 seconde (converti fps en entier)
+    anim_frames = int(round(fps))
     for step in range(1, anim_frames + 1):
         t = step / anim_frames
         interp_pos = (1 - t) * start_pos + t * final_pos
@@ -95,8 +95,8 @@ def animate_final_bar_fixed(video_out, last_frame, conn, new_colors, abbreviatio
 
         video_out.write(frame)
 
-    # Affichage fixe 5 secondes
-    display_frames = 5 * fps
+    # Affichage fixe 5 secondes (converti en entier)
+    display_frames = int(round(5 * fps))
     for _ in range(display_frames):
         frame = last_frame.copy()
         frame, _ = draw_fixed_realtime_bar(frame, total_counts, new_colors, abbreviations, cols=cols)
