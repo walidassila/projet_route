@@ -63,7 +63,6 @@ def animate_final_bar_fixed(video_out, last_frame, conn, new_colors, abbreviatio
     Anime la barre de la position actuelle vers le centre et affiche le résultat final pendant 5 secondes.
     """
     cursor = conn.cursor()
-    # Totaux depuis la table filtrée
     cursor.execute("SELECT id_class, COUNT(*) FROM filtered_detections GROUP BY id_class")
     results = cursor.fetchall()
     total_counts = defaultdict(int, {row[0]: row[1] for row in results})
@@ -78,7 +77,7 @@ def animate_final_bar_fixed(video_out, last_frame, conn, new_colors, abbreviatio
     final_pos = np.array([w // 2 - bar_width // 2, h // 2 - box_height // 2], dtype=float)
     start_pos = np.array(current_bar_pos, dtype=float)
 
-    # Animation 1 seconde (converti fps en entier)
+    # Animation 1 seconde
     anim_frames = int(round(fps))
     for step in range(1, anim_frames + 1):
         t = step / anim_frames
@@ -87,7 +86,6 @@ def animate_final_bar_fixed(video_out, last_frame, conn, new_colors, abbreviatio
         frame, _ = draw_fixed_realtime_bar(frame, total_counts, new_colors, abbreviations, cols=cols)
         x_offset, y_offset = int(interp_pos[0]), int(interp_pos[1])
 
-        # Overlay partiel pour simuler le déplacement
         temp_frame = frame.copy()
         y_end = min(frame.shape[0], y_offset + temp_frame.shape[0])
         x_end = min(frame.shape[1], x_offset + temp_frame.shape[1])
@@ -95,7 +93,7 @@ def animate_final_bar_fixed(video_out, last_frame, conn, new_colors, abbreviatio
 
         video_out.write(frame)
 
-    # Affichage fixe 5 secondes (converti en entier)
+    # Affichage fixe 5 secondes
     display_frames = int(round(5 * fps))
     for _ in range(display_frames):
         frame = last_frame.copy()

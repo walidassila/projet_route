@@ -119,8 +119,9 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
     
     # Filtrer les détections dans la base pour garder max confiance par id_affichage/id_class
     filter_detections_keep_max_conf(conn, cursor)
+    
     # Animation finale sur la dernière frame
-    animate_final_bar_fixed(video_out, last_frame, conn, new_colors, abbreviations, fps, current_bar_pos, cols=2)    
+    animate_final_bar_fixed(video_out, last_frame, conn, new_colors, abbreviations, fps, current_bar_pos, cols=2)   
     video_out.release() 
     cap.release()  # release après le traitement final
     
