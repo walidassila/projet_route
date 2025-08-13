@@ -102,7 +102,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
             current_counts[class_id] += 1
         
         frame = draw_fixed_realtime_bar(frame, current_counts, new_colors, abbreviations, cols=2)
-        last_frame = frame.copy()
+        
         video_out.write(frame)
         
         if len(batch_inserts) >= 100:
