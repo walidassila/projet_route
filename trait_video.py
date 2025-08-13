@@ -57,10 +57,10 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
 
     for frame_idx in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
-        
         if not ret:
             break
         
+        last_frame=frame.copy()
         results = model.predict(frame, imgsz=640, conf=conf, verbose=False)[0]
         frame_shape = frame.shape[:2]
 
@@ -105,7 +105,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
         
         frame = draw_fixed_realtime_bar(frame, current_counts, new_colors, abbreviations, cols=2)
         video_out.write(frame)
-        last_frame=frame
+        
         if len(batch_inserts) >= 100:
             insert_detections_batch(cursor, batch_inserts)
             conn.commit()
