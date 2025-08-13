@@ -73,8 +73,7 @@ def filter_detections_keep_max_conf(conn, cursor):
 
 
 def export_detections_as_images(conn, cursor, cap, output_folder, new_colors, video_path=None):
-    import logging
-
+  
     if video_path:
         video_name = os.path.splitext(os.path.basename(video_path))[0]
     else:
