@@ -54,8 +54,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
     batch_inserts = []
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
-    last_frame = None
-    current_bar_pos = None
+    
 
     for frame_idx in tqdm(range(frame_count), desc="📦 Traitement", unit="frame"):
         ret, frame = cap.read()
@@ -102,7 +101,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
                 # Mise à jour du compteur pour le mini-bar
             current_counts[class_id] += 1
         
-        frame,current_bar_pos = draw_fixed_realtime_bar(frame, current_counts, new_colors, abbreviations, cols=2)
+        frame = draw_fixed_realtime_bar(frame, current_counts, new_colors, abbreviations, cols=2)
         last_frame = frame.copy()
         video_out.write(frame)
         
@@ -119,9 +118,7 @@ def trait_tracking(model, video_path, output_folder=None, conf=0.4,
     
     # Filtrer les détections dans la base pour garder max confiance par id_affichage/id_class
     filter_detections_keep_max_conf(conn, cursor)
-    
-    # Animation finale sur la dernière frame
-    animate_final_bar_fixed(video_out, last_frame, conn, new_colors, abbreviations, fps, current_bar_pos, cols=2)   
+     
     video_out.release() 
     cap.release()  # release après le traitement final
     
