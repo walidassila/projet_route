@@ -80,10 +80,10 @@ def append_final_summary(video_out, cap, frame_count, fps, totals, class_colors,
 
  #########
 def animate_final_results(video_out, last_frame, fps, final_counts, class_colors, abbreviations, cols=2,
-                          move_duration_sec=3, static_duration_sec=2):
+                         move_duration_sec=3, static_duration_sec=2):
     """
     Affiche la barre finale animée depuis le haut vers le centre
-    avec la dernière frame comme background.
+    avec la dernière frame comme background et un titre fixe.
     """
     height, width = last_frame.shape[:2]
 
@@ -104,15 +104,21 @@ def animate_final_results(video_out, last_frame, fps, final_counts, class_colors
     num_frames_static = int(fps * static_duration_sec)
     num_frames_total = num_frames_move + num_frames_static
 
+    # Définir le titre
+    title = "Bilan Final"
+    title_scale = font_scale * 1.2
+    title_thickness = font_thickness + 1
+    title_padding = 10  # Padding autour du texte pour le cadre
+
     for frame_idx in range(num_frames_total):
         frame = last_frame.copy()
         overlay = frame.copy()
 
+        # Calcul position barre
         if frame_idx < num_frames_move:
             progress = frame_idx / num_frames_move
             eased_progress = 0.5 - 0.5 * np.cos(np.pi * progress)  # easing cosinus
 
-            # Calcul position verticale et horizontale
             y_offset = int((height // 2 - box_height // 2 - margin) * eased_progress)
             top_left_y = margin + y_offset
             bottom_right_y = top_left_y + box_height
@@ -129,8 +135,22 @@ def animate_final_results(video_out, last_frame, fps, final_counts, class_colors
             top_left_x = width // 2 - (cols * box_width + (cols - 1) * margin) // 2
             bottom_right_x = top_left_x + cols * box_width + (cols - 1) * margin
 
-        # Fond du cadre
+        # Fond du cadre principal
         cv2.rectangle(overlay, (top_left_x, top_left_y), (bottom_right_x, bottom_right_y), (30, 30, 30), -1)
+
+        # Titre avec cadre
+        (title_width, title_height), _ = cv2.getTextSize(title, cv2.FONT_HERSHEY_SIMPLEX, title_scale, title_thickness)
+        title_x = top_left_x + (bottom_right_x - top_left_x - title_width) // 2
+        title_y = top_left_y - 10
+        
+        # Cadre autour du titre (même couleur que le cadre principal)
+        title_box_top_left = (title_x - title_padding, title_y - title_height - title_padding)
+        title_box_bottom_right = (title_x + title_width + title_padding, title_y + title_padding)
+        cv2.rectangle(overlay, title_box_top_left, title_box_bottom_right, (30, 30, 30), -1)
+        
+        # Texte du titre (en jaune vif)
+        cv2.putText(overlay, title, (title_x, title_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, title_scale, (0, 255, 255), title_thickness, cv2.LINE_AA)
 
         # Dessin des carrés + texte
         for idx, cls in enumerate(abbreviations):
